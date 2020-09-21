@@ -18,6 +18,7 @@
 
 #include "ethernet.h"
 #include "ethernet_pcap.h"
+#include "ethernet_slirp.h"
 #include <cstring>
 #include "dosbox.h"
 #include "control.h"
@@ -31,6 +32,13 @@ EthernetConnection* OpenEthernetConnection(std::string backend)
     {
         conn = ((EthernetConnection*)new PcapEthernetConnection);
         settings = control->GetSection("ethernet, pcap");
+    }
+#endif
+#ifdef C_PCAP
+    if (backend == "slirp")
+    {
+        conn = ((EthernetConnection*)new SlirpEthernetConnection);
+        settings = control->GetSection("ethernet, pcap"); /* Dummy section for now */
     }
 #endif
     if (!conn)

@@ -982,6 +982,21 @@ case "$host" in
     ;;
 esac
 
+dnl FEATURE: Whether to use libslirp, and enable userspace TCP/IP emulation
+AH_TEMPLATE(C_SLIRP,[Define to 1 to enable userspace TCP/IP emulation, requires libslirp])
+AC_MSG_CHECKING(for libslirp)
+pkg-config --exists slirp; RES=$?
+if test x$RES = x0; then
+  CFLAGS="$CFLAGS "`pkg-config slirp --cflags`
+  CPPFLAGS="$CPPFLAGS "`pkg-config slirp --cflags`
+  LIBS="$LIBS "`pkg-config slirp --libs`
+  AC_DEFINE(C_SLIRP,1)
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_WARN([Can't find libslirp, userspace TCP/IP emulation disabled])
+  AC_MSG_RESULT(no)
+fi
+
 if test x$enable_x11 != xno; then
   dnl FEATURE: Whether to use X11 XKBlib
   AH_TEMPLATE(C_X11_XKB,[define to 1 if you have XKBlib.h and X11 lib])

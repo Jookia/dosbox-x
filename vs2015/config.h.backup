@@ -2,7 +2,7 @@
 /* Hand-edited by Jonathan Campbell for Visual Studio 2008 */
 
 /*
- *  Copyright (C) 2002-2013  The DOSBox Team
+ *  Copyright (C) 2002-2020  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -14,9 +14,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU Library General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 
@@ -35,26 +35,27 @@
 /* Define to 1 to use inlined memory functions in cpu core */
 #define C_CORE_INLINE	1
 
+/* Define to 1 to use Direct3D shaders, requires d3d9.h and libd3dx9 */
+#undef C_D3DSHADERS
+
 /* Define to 1 to enable internal debugger, requires libcurses */
-#define C_DEBUG 1
+#undef C_DEBUG
 
 /* Define to 1 if you want parallel passthrough support (Win32, Linux). */
-#define C_DIRECTLPT 1
+#undef C_DIRECTLPT
 
 /* Define to 1 if you want serial passthrough support (Win32, Posix and OS/2).
    */
-#define C_DIRECTSERIAL 1
+#undef C_DIRECTSERIAL
 
 #ifdef _M_AMD64 /* Microsoft C++ amd64 */
 # undef C_DYNAMIC_X86
 # undef C_TARGETCPU
-# define C_DYNREC 1
 #else
 /* The type of cpu this target has */
 #define C_TARGETCPU X86
 /* Define to 1 to use x86 dynamic cpu core */
-# undef C_DYNAMIC_X86
-# define C_DYNREC 1
+# define C_DYNAMIC_X86			1
 #endif
 
 /* Define to 1 to enable fluidsynth MIDI synthesis */
@@ -77,9 +78,7 @@
 #undef C_HEAVY_DEBUG
 
 /* Define to 1 to enable IPX over Internet networking, requires SDL_net */
-#if !defined(C_SDL2)
-//#define C_IPX 1
-#endif
+#define C_IPX 1
 
 /* Define to 1 if you have libpng */
 #define C_LIBPNG 1
@@ -88,18 +87,10 @@
 #undef C_MODEM
 
 /* Define to 1 to enable ethernet passthrough, requires libpcap */
-#define C_PCAP 1
+#undef C_PCAP
 
 /* Define to 1 to use opengl display output support */
-#if !defined(C_SDL2)
 #define C_OPENGL 1
-#endif
-
-/* Set to 1 to enable SDL 1.x support */
-#define C_SDL1 1
-
-/* Set to 1 to enable SDL 2.x support */
-/* #undef C_SDL2 */
 
 /* Define to 1 if you have setpriority support */
 #undef C_SET_PRIORITY
@@ -129,21 +120,10 @@
 #undef HAVE_ALSA
 
 /* Define to 1 if you have the <d3d9.h> header file. */
-#if !defined(C_SDL2)
-/*#define HAVE_D3D9_H 1*/
-#endif
-
-#if HAVE_D3D9_H
-/* Define to 1 if you want to add Direct3D output to the list of available outputs */
-#define C_DIRECT3D 1
-/* Define to 1 to use Direct3D shaders, requires d3d9.h and libd3dx9 */
-#define C_D3DSHADERS 1
-#endif
+#undef HAVE_D3D9_H
 
 /* Define to 1 if you have the <ddraw.h> header file. */
-#if !defined(C_SDL2)
 #define HAVE_DDRAW_H 1
-#endif
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
@@ -193,6 +173,9 @@
 /* Compiling on OS/2 EMX */
 #undef OS2
 
+/* Name of package */
+#define PACKAGE					"dosbox"
+
 /* Define to the address where bug reports for this package should be sent. */
 
 /* Define to the full name of this package. */
@@ -206,11 +189,7 @@
 /* Define to the version of this package. */
 
 /* The size of `int *', as computed by sizeof. */
-#ifdef _M_AMD64 /* Microsoft C++ amd64 */
-# define SIZEOF_INT_P				8
-#else
-# define SIZEOF_INT_P				4
-#endif
+#define SIZEOF_INT_P				4
 
 /* The size of `unsigned char', as computed by sizeof. */
 #define SIZEOF_UNSIGNED_CHAR		1
@@ -232,6 +211,9 @@
 
 /* Define to 1 if your <sys/time.h> declares `struct tm'. */
 #undef TM_IN_SYS_TIME
+
+/* Version number of package */
+#define VERSION					"DOSBox-X"
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */
@@ -339,12 +321,9 @@ typedef         double     Real64;
 #if defined(WIN32)
 # pragma warning(disable:4996)
 #endif
-
-#define PACKAGE "dosbox-x"
 #define PACKAGE_BUGREPORT "https://github.com/joncampbell123/dosbox-x/issues"
 #define PACKAGE_NAME "dosbox-x"
-#define PACKAGE_STRING "dosbox-x 0.82.22"
+#define PACKAGE_STRING "dosbox-x 0.801"
 #define PACKAGE_TARNAME "dosbox-x"
 #define PACKAGE_URL "https://dosbox-x.com"
-#define PACKAGE_VERSION "0.82.22"
-#define VERSION "0.82.22"
+#define PACKAGE_VERSION "0.801"

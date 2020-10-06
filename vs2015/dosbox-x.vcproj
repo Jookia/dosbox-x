@@ -747,6 +747,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\src\misc\ethernet.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\src\misc\messages.cpp"
 				>
 			</File>

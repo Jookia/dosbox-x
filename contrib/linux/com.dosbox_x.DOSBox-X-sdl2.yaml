@@ -56,7 +56,7 @@ modules:
         url: https://github.com/FluidSynth/fluidsynth/archive/v1.1.11.tar.gz
         sha256: da8878ff374d12392eecf87e96bad8711b8e76a154c25a571dd8614d1af80de8
 
-# Build libpcap for NE2000 (and run setcap at the end)
+# Build libpcap for networking (and run setcap at the end)
   - name: libpcap
     cleanup:
       - "/include"

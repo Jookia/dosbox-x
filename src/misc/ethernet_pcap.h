@@ -1,5 +1,4 @@
-/*
- *  Copyright (C) 2020  The DOSBox Team
+/* *  Copyright (C) 2020  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,32 +15,33 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "ethernet.h"
-#include "ethernet_pcap.h"
-#include <cstring>
-#include "dosbox.h"
+#ifndef DOSBOX_ETHERNET_PCAP_H
+#define DOSBOX_ETHERNET_PCAP_H
 
-EthernetConnection* OpenEthernetConnection(std::string backend)
-{
-    EthernetConnection* conn = nullptr;
-#ifdef C_PCAP
-    if (backend == "pcap")
-    {
-        conn = ((EthernetConnection*)new PcapEthernetConnection);
-    }
+#include "config.h"
+
+#if C_PCAP
+
+#include "ethernet.h"
+
+#ifdef WIN32
+#define HAVE_REMOTE
 #endif
-    if (!conn)
-    {
-        LOG_MSG("Unknown ethernet backend: %s", backend);
-        return nullptr;
-    }
-    if (conn->Initialize())
-    {
-        return conn;
-    }
-    else
-    {
-        delete conn;
-        return nullptr;
-    }
-}
+
+#include "support.h" /* Prevents snprintf conflict with pcap on Windows */
+#include "pcap.h"
+
+class PcapEthernetConnection : public EthernetConnection {
+	public:
+		PcapEthernetConnection(void);
+		~PcapEthernetConnection(void);
+		bool Initialize(void);
+		void SendPacket(uint8_t* packet, int len);
+		void GetPackets(std::function<void(uint8_t*, int)> callback);
+	private:
+		pcap_t *adhandle = 0;
+};
+
+#endif
+
+#endif

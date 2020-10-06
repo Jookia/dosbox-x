@@ -755,6 +755,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\src\misc\ethernet_pcap.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\src\gui\midi.cpp"
 				>
 			</File>

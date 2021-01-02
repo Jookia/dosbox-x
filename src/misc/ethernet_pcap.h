@@ -35,7 +35,7 @@ class PcapEthernetConnection : public EthernetConnection {
 	public:
 		PcapEthernetConnection(void);
 		~PcapEthernetConnection(void);
-		bool Initialize(void);
+		bool Initialize(Section* config);
 		void SendPacket(uint8_t* packet, int len);
 		void GetPackets(std::function<void(uint8_t*, int)> callback);
 	private:

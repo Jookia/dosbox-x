@@ -430,19 +430,12 @@ LDFLAGS="$LDFLAGS -L$pwd/vs2015/sdlnet/linux-host/lib"
 CPPFLAGS="$CPPFLAGS -I$pwd -I$pwd/vs2015/sdlnet/linux-host/include -I$pwd/vs2015/sdlnet/linux-host/include/SDL"
 CXXFLAGS="$CXXFLAGS -I$pwd -I$pwd/vs2015/sdlnet/linux-host/include -I$pwd/vs2015/sdlnet/linux-host/include/SDL"
 
-dnl LIBRARY TEST: SDLnet initial test
-AC_CHECK_HEADER(SDL_net.h,have_sdl_net_h=yes,)
-
 if test x$enable_emscripten != xyes; then
 dnl Some target detection and actions for them
 case "$host" in
     *-*-cygwin* | *-*-mingw32*)
        LIBS="$LIBS -lwinmm -ldsound -limm32 -lole32 -loleaut32 -lversion -lsetupapi"
        CXXFLAGS="$CXXFLAGS -mno-ms-bitfields"
-       if test x$have_sdl_net_h = xyes ; then
-         dnl HACK: We have to put SDL_net THEN winsock libraries or else the linker can't resolve things properly
-         LIBS="$LIBS -lSDL_net -lwsock32 -lws2_32 -liphlpapi"
-       fi
        dnl FEATURE: Whether to support direct parallel port passthrough
        AC_DEFINE(C_DIRECTLPT, 1, [ Define to 1 if you want parallel passthrough support (Win32, Linux).])
        dnl FEATURE: Whether to support direct serial port passthrough
@@ -920,11 +913,13 @@ if test -n "$SDL2_LIBS"; then
   AC_DEFINE(C_SDL_NET,1)
   AC_DEFINE(C_MODEM,1)
   AC_DEFINE(C_IPX,1)
+  have_sdl_net=yes
  elif test x$have_sdl_net_lib = xyes -a x$have_sdl_net_h = xyes ; then
   LIBS="$LIBS -lSDL_net"
   AC_DEFINE(C_SDL_NET,1)
   AC_DEFINE(C_MODEM,1)
   AC_DEFINE(C_IPX,1)
+  have_sdl_net=yes
  else
   AC_MSG_WARN([Can't find SDL_net, internal modem and ipx disabled])
  fi
@@ -934,6 +929,7 @@ else
   AC_DEFINE(C_SDL_NET,1)
   AC_DEFINE(C_MODEM,1)
   AC_DEFINE(C_IPX,1)
+  have_sdl_net=yes
  else 
   AC_MSG_WARN([Can't find SDL_net, internal modem and ipx disabled])
  fi
@@ -989,12 +985,25 @@ pkg-config --exists slirp; RES=$?
 if test x$RES = x0; then
   CFLAGS="$CFLAGS "`pkg-config slirp --cflags`
   CPPFLAGS="$CPPFLAGS "`pkg-config slirp --cflags`
-  LIBS="$LIBS "`pkg-config slirp --libs`
+  LIBS="$LIBS "`pkg-config slirp --libs`" -liconv"
   AC_DEFINE(C_SLIRP,1)
   AC_MSG_RESULT(yes)
+  have_slirp=yes
 else
-  AC_MSG_WARN([Can't find libslirp, userspace TCP/IP emulation disabled])
   AC_MSG_RESULT(no)
+  AC_MSG_WARN([Can't find libslirp, userspace TCP/IP emulation disabled])
+  have_slirp=no
+fi
+
+if test x$enable_emscripten != xyes; then
+# TODO: comment
+case "$host" in
+    *-*-cygwin* | *-*-mingw32*)
+       if test x$have_sdl_net = xyes -o x$have_slirp = xyes; then
+         LIBS="$LIBS -lwsock32 -lws2_32 -liphlpapi"
+       fi
+    ;;
+esac
 fi
 
 if test x$enable_x11 != xno; then

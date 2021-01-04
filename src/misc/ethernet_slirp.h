@@ -24,7 +24,9 @@
 
 #include "ethernet.h"
 #include <slirp/libslirp.h>
-#include <poll.h>
+#include <list>
+
+#include <winsock2.h>
 
 struct slirp_timer {
 	int used;
@@ -49,12 +51,21 @@ class SlirpEthernetConnection : public EthernetConnection {
 
 		int Poll_Add(int fd, int slirp_events);
 		int Poll_Get_Slirp_Revents(int idx);
+		void Poll_Register(int fd);
+		void Poll_Unregister(int fd);
+		void Poll_Add_Registered(void);
 
 	private:
 		void Timers_Run(void);
 		void Polls_Clear(void);
 
-		struct pollfd polls[256] = { 0 };
+		fd_set fds_read;
+		fd_set fds_write;
+		fd_set fds_except;
+		std::list<int> fds_registered;
+		int fds_max;
+
+		/* TODO: list */
 		struct slirp_timer timers[256] = { 0 };
 		Slirp* slirp = nullptr;
 		SlirpConfig config = { 0 };

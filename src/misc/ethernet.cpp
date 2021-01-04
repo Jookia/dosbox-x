@@ -34,7 +34,7 @@ EthernetConnection* OpenEthernetConnection(std::string backend)
         settings = control->GetSection("ethernet, pcap");
     }
 #endif
-#ifdef C_PCAP
+#ifdef C_SLIRP
     if (backend == "slirp")
     {
         conn = ((EthernetConnection*)new SlirpEthernetConnection);
@@ -43,7 +43,7 @@ EthernetConnection* OpenEthernetConnection(std::string backend)
 #endif
     if (!conn)
     {
-        LOG_MSG("Unknown ethernet backend: %s", backend);
+        LOG_MSG("Unknown ethernet backend: %s", backend.c_str());
         return nullptr;
     }
     assert(settings);

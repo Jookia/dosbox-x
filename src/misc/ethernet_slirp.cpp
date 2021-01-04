@@ -21,6 +21,7 @@
 
 #include "ethernet_slirp.h"
 #include <time.h>
+#include <algorithm>
 #include "dosbox.h"
 
 #ifdef WIN32
@@ -85,15 +86,14 @@ int slirp_get_revents(int idx, void *opaque)
 
 void slirp_register_poll_fd(int fd, void *opaque)
 {
-	(void)fd; (void)opaque;
-	/* TODO: find way to preserve these across polls_clear */
-	/*polls_add(fd, POLLIN | POLLOUT);*/
+	SlirpEthernetConnection* conn = (SlirpEthernetConnection*)opaque;
+	conn->Poll_Register(fd);
 }
 
 void slirp_unregister_poll_fd(int fd, void *opaque)
 {
-	(void)fd; (void)opaque;
-	/*polls_remove(fd);*/
+	SlirpEthernetConnection* conn = (SlirpEthernetConnection*)opaque;
+	conn->Poll_Unregister(fd);
 }
 
 void slirp_notify(void *opaque)
@@ -114,6 +114,7 @@ SlirpEthernetConnection::SlirpEthernetConnection(void)
 	slirp_callbacks.register_poll_fd = slirp_register_poll_fd;
 	slirp_callbacks.unregister_poll_fd = slirp_unregister_poll_fd;
 	slirp_callbacks.notify = slirp_notify;
+	Polls_Clear();
 }
 
 SlirpEthernetConnection::~SlirpEthernetConnection(void)
@@ -180,13 +181,19 @@ void SlirpEthernetConnection::SendPacket(uint8_t* packet, int len)
 
 void SlirpEthernetConnection::GetPackets(std::function<void(uint8_t*, int)> callback)
 {
-	get_packet_callback = callback;
-	uint32_t timeout = 0;
 	Polls_Clear();
+	Poll_Add_Registered();
+	uint32_t timeout = 0;
 	slirp_pollfds_fill(slirp, &timeout, slirp_add_poll, this);
-	/* TODO: replace poll with select */
-	int ret = poll(polls, 256, timeout);
-	slirp_pollfds_poll(slirp, (ret <= -1), slirp_get_revents, this);
+	struct timeval select_timeout;
+	select_timeout.tv_sec = 0;
+	select_timeout.tv_usec = timeout * 1000;
+	get_packet_callback = callback;
+	int ret = select(fds_max + 1, &fds_read, &fds_write, &fds_except, &select_timeout);
+	/* TODO: ret? */
+	if(ret < -1)
+		printf("SELECT BAD\n");
+	slirp_pollfds_poll(slirp, 0, slirp_get_revents, this);
 	Timers_Run();
 }
 
@@ -238,34 +245,67 @@ void SlirpEthernetConnection::Timers_Run(void)
 
 int SlirpEthernetConnection::Poll_Add(int fd, int slirp_events)
 {
-	int real_events = 0;
-	if(slirp_events & SLIRP_POLL_IN)  real_events |= POLLIN;
-	if(slirp_events & SLIRP_POLL_OUT) real_events |= POLLOUT;
-	if(slirp_events & SLIRP_POLL_PRI) real_events |= POLLPRI;
-	/* TODO: check fd <= 256 */
-	polls[fd].fd = fd;
-	polls[fd].events = real_events;
+	if(slirp_events & SLIRP_POLL_IN)  FD_SET(fd, &fds_read);
+	if(slirp_events & SLIRP_POLL_OUT) FD_SET(fd, &fds_write);
+	if(slirp_events & SLIRP_POLL_PRI) FD_SET(fd, &fds_except);
+	if(fd > fds_max) fds_max = fd;
 	return fd;
 }
 
 int SlirpEthernetConnection::Poll_Get_Slirp_Revents(int idx)
 {
-	int real_revents = polls[idx].revents;
 	int slirp_revents = 0;
-	if(real_revents & POLLIN)  slirp_revents |= SLIRP_POLL_IN;
-	if(real_revents & POLLOUT) slirp_revents |= SLIRP_POLL_OUT;
-	if(real_revents & POLLPRI) slirp_revents |= SLIRP_POLL_PRI;
-	if(real_revents & POLLERR) slirp_revents |= SLIRP_POLL_ERR;
-	if(real_revents & POLLHUP) slirp_revents |= SLIRP_POLL_HUP;
+	if(FD_ISSET(idx, &fds_read))   slirp_revents |= SLIRP_POLL_IN;
+	if(FD_ISSET(idx, &fds_write))  slirp_revents |= SLIRP_POLL_OUT;
+	if(FD_ISSET(idx, &fds_except)) slirp_revents |= SLIRP_POLL_PRI;
+	if(FD_ISSET(idx, &fds_except)) {
+		char buf[32];
+		int toread = recv(idx, buf, sizeof(buf), MSG_PEEK);
+		if(toread == -1) {
+			slirp_revents |= SLIRP_POLL_ERR;
+			printf("POLLERR SET\n");
+		}
+		if(toread == 0) {
+			slirp_revents |= SLIRP_POLL_HUP;
+			printf("POLLUP SET\n");
+		}
+	}
+	{
+		int sock_error;
+		socklen_t opt_len = sizeof(sock_error);
+		int err = getsockopt(idx, SOL_SOCKET, SO_ERROR,
+			(char*)&sock_error, &opt_len);
+		if(sock_error != 0 || err == 0)
+			slirp_revents |= SLIRP_POLL_ERR;
+	}
 	return slirp_revents;
 }
 
 void SlirpEthernetConnection::Polls_Clear(void)
 {
-	for(int i = 0; i < 256; ++i)
+	FD_ZERO(&fds_read);
+	FD_ZERO(&fds_write);
+	FD_ZERO(&fds_except);
+	fds_max = 0;
+}
+
+void SlirpEthernetConnection::Poll_Register(int fd)
+{
+	Poll_Unregister(fd);
+	fds_registered.push_back(fd);
+}
+
+void SlirpEthernetConnection::Poll_Unregister(int fd)
+{
+	std::remove(fds_registered.begin(), fds_registered.end(), fd);
+}
+
+void SlirpEthernetConnection::Poll_Add_Registered(void)
+{
+	for(std::list<int>::iterator i = fds_registered.begin();
+		i != fds_registered.end(); ++i)
 	{
-		polls[i].fd = -1;
-		polls[i].events = 0;
+		Poll_Add(*i, SLIRP_POLL_IN | SLIRP_POLL_OUT);
 	}
 }
 

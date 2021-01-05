@@ -114,7 +114,6 @@ SlirpEthernetConnection::SlirpEthernetConnection(void)
 	slirp_callbacks.register_poll_fd = slirp_register_poll_fd;
 	slirp_callbacks.unregister_poll_fd = slirp_unregister_poll_fd;
 	slirp_callbacks.notify = slirp_notify;
-	Polls_Clear();
 }
 
 SlirpEthernetConnection::~SlirpEthernetConnection(void)
@@ -181,19 +180,14 @@ void SlirpEthernetConnection::SendPacket(uint8_t* packet, int len)
 
 void SlirpEthernetConnection::GetPackets(std::function<void(uint8_t*, int)> callback)
 {
-	Polls_Clear();
-	Poll_Add_Registered();
-	uint32_t timeout = 0;
-	slirp_pollfds_fill(slirp, &timeout, slirp_add_poll, this);
-	struct timeval select_timeout;
-	select_timeout.tv_sec = 0;
-	select_timeout.tv_usec = timeout * 1000;
 	get_packet_callback = callback;
-	int ret = select(fds_max + 1, &fds_read, &fds_write, &fds_except, &select_timeout);
-	/* TODO: ret? */
-	if(ret < -1)
-		printf("SELECT BAD\n");
-	slirp_pollfds_poll(slirp, 0, slirp_get_revents, this);
+	Polls_Clear();
+	Polls_Add_Registered();
+	uint32_t timeout;
+	// TODO: TIMEOUT
+	slirp_pollfds_fill(slirp, &timeout, slirp_add_poll, this);
+	bool select_error = !Polls_Check();
+	slirp_pollfds_poll(slirp, select_error, slirp_get_revents, this);
 	Timers_Run();
 }
 
@@ -243,52 +237,6 @@ void SlirpEthernetConnection::Timers_Run(void)
 	}
 }
 
-int SlirpEthernetConnection::Poll_Add(int fd, int slirp_events)
-{
-	if(slirp_events & SLIRP_POLL_IN)  FD_SET(fd, &fds_read);
-	if(slirp_events & SLIRP_POLL_OUT) FD_SET(fd, &fds_write);
-	if(slirp_events & SLIRP_POLL_PRI) FD_SET(fd, &fds_except);
-	if(fd > fds_max) fds_max = fd;
-	return fd;
-}
-
-int SlirpEthernetConnection::Poll_Get_Slirp_Revents(int idx)
-{
-	int slirp_revents = 0;
-	if(FD_ISSET(idx, &fds_read))   slirp_revents |= SLIRP_POLL_IN;
-	if(FD_ISSET(idx, &fds_write))  slirp_revents |= SLIRP_POLL_OUT;
-	if(FD_ISSET(idx, &fds_except)) slirp_revents |= SLIRP_POLL_PRI;
-	if(FD_ISSET(idx, &fds_except)) {
-		char buf[32];
-		int toread = recv(idx, buf, sizeof(buf), MSG_PEEK);
-		if(toread == -1) {
-			slirp_revents |= SLIRP_POLL_ERR;
-			printf("POLLERR SET\n");
-		}
-		if(toread == 0) {
-			slirp_revents |= SLIRP_POLL_HUP;
-			printf("POLLUP SET\n");
-		}
-	}
-	{
-		int sock_error;
-		socklen_t opt_len = sizeof(sock_error);
-		int err = getsockopt(idx, SOL_SOCKET, SO_ERROR,
-			(char*)&sock_error, &opt_len);
-		if(sock_error != 0 || err == 0)
-			slirp_revents |= SLIRP_POLL_ERR;
-	}
-	return slirp_revents;
-}
-
-void SlirpEthernetConnection::Polls_Clear(void)
-{
-	FD_ZERO(&fds_read);
-	FD_ZERO(&fds_write);
-	FD_ZERO(&fds_except);
-	fds_max = 0;
-}
-
 void SlirpEthernetConnection::Poll_Register(int fd)
 {
 	Poll_Unregister(fd);
@@ -300,13 +248,66 @@ void SlirpEthernetConnection::Poll_Unregister(int fd)
 	std::remove(fds_registered.begin(), fds_registered.end(), fd);
 }
 
-void SlirpEthernetConnection::Poll_Add_Registered(void)
+void SlirpEthernetConnection::Polls_Add_Registered(void)
 {
 	for(std::list<int>::iterator i = fds_registered.begin();
 		i != fds_registered.end(); ++i)
 	{
 		Poll_Add(*i, SLIRP_POLL_IN | SLIRP_POLL_OUT);
 	}
+}
+
+//
+// PLATFORM SPECIFIC CODE
+//
+
+int SlirpEthernetConnection::Poll_Add(int fd, int slirp_events)
+{
+	SOCKET sock = (SOCKET)fd;
+	WSAEVENT event = WSACreateEvent();
+	assert(event != WSA_INVALID_EVENT);
+	DWORD ret = WSAEventSelect(sock, event, FD_READ | FD_WRITE | FD_OOB | FD_CLOSE);
+	if(ret != 0) LOG_MSG("bad fd %i", fd);
+	assert(ret == 0);
+	WSANETWORKEVENTS net_events;
+	int ret2 = WSAEnumNetworkEvents(sock, event, &net_events);
+	assert(ret2 == 0);
+	WSACloseEvent(event);
+	int neteventmask = net_events.lNetworkEvents;
+	if(neteventmask == 0)
+		return fd;
+	struct windows_revents* revent = &revents[num_revents++];
+	revent->fd = fd;
+	revent->revents = 0;
+	if(neteventmask & FD_READ) revent->revents |= SLIRP_POLL_IN;
+	if(neteventmask & FD_WRITE) revent->revents |= SLIRP_POLL_OUT;
+	if(neteventmask & FD_OOB) revent->revents |= SLIRP_POLL_PRI;
+	if(neteventmask & FD_CLOSE) revent->revents |= SLIRP_POLL_HUP;
+	//revent->revents &= slirp_events;
+	LOG_MSG("rervents: %i revents %p fd %i idx %i", revent->revents, revent, revent->fd, fd);
+	return fd;
+}
+
+bool SlirpEthernetConnection::Polls_Check(void)
+{
+	return true;
+}
+
+int SlirpEthernetConnection::Poll_Get_Slirp_Revents(int idx)
+{
+	if(num_revents == 0) return 0;
+	for(int i = 0; i < num_revents; ++i) {
+		struct windows_revents* revent = &revents[i];
+		if(revent->fd == idx) {
+			return revent->revents;
+		}
+	}
+	return 0;
+}
+
+void SlirpEthernetConnection::Polls_Clear(void)
+{
+	num_revents = 0;
 }
 
 #endif

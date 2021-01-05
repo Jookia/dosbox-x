@@ -35,6 +35,11 @@ struct slirp_timer {
 	void *cb_opaque;
 };
 
+struct windows_revents {
+	int fd;
+	int revents;
+};
+
 class SlirpEthernetConnection : public EthernetConnection {
 	public:
 		SlirpEthernetConnection(void);
@@ -53,17 +58,17 @@ class SlirpEthernetConnection : public EthernetConnection {
 		int Poll_Get_Slirp_Revents(int idx);
 		void Poll_Register(int fd);
 		void Poll_Unregister(int fd);
-		void Poll_Add_Registered(void);
 
 	private:
 		void Timers_Run(void);
+		void Polls_Add_Registered(void);
+		bool Polls_Check(void);
 		void Polls_Clear(void);
 
-		fd_set fds_read;
-		fd_set fds_write;
-		fd_set fds_except;
 		std::list<int> fds_registered;
-		int fds_max;
+
+		struct windows_revents revents[256];
+		int num_revents = 0;
 
 		/* TODO: list */
 		struct slirp_timer timers[256] = { 0 };

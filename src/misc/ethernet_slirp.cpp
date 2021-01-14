@@ -140,11 +140,6 @@ bool SlirpEthernetConnection::Initialize(Section* dosbox_config)
 {
 	Section_prop *section = static_cast<Section_prop*>(dosbox_config);
 
-#ifdef WIN32
-	LOG_MSG("SLIRP not implemented on Windows yet");
-	return false;
-#endif
-
 	LOG_MSG("SLIRP version: %s", slirp_version_string());
 
 	/* Config */
@@ -315,24 +310,68 @@ int SlirpEthernetConnection::PollGetSlirpRevents(int idx)
 
 void SlirpEthernetConnection::PollsClear()
 {
+	FD_ZERO(&readfds);
+	FD_ZERO(&writefds);
+	FD_ZERO(&exceptfds);
 }
 
 int SlirpEthernetConnection::PollAdd(int fd, int slirp_events)
 {
-	(void)fd;
-	(void)slirp_events;
-	return 0;
+	if(slirp_events & SLIRP_POLL_IN)  FD_SET(fd, &readfds);
+	if(slirp_events & SLIRP_POLL_OUT) FD_SET(fd, &writefds);
+	if(slirp_events & SLIRP_POLL_PRI) FD_SET(fd, &exceptfds);
+	return fd;
 }
 
 bool SlirpEthernetConnection::PollsPoll(uint32_t timeout_ms)
 {
-	(void)timeout_ms;
+	struct timeval timeout;
+	timeout.tv_sec = timeout_ms / 1000;
+	timeout.tv_usec = (timeout_ms % 1000) * 1000;
+	int ret = select(0, &readfds, &writefds, &exceptfds, &timeout);
+	return (ret > -1);
 }
 
 int SlirpEthernetConnection::PollGetSlirpRevents(int idx)
 {
-	(void)idx;
-	return 0;
+	int slirp_revents = 0;
+	if(FD_ISSET(idx, &readfds))
+	{
+		char buf[8];
+		int read = recv(idx, buf, sizeof(buf), MSG_PEEK);
+		int error = (read == SOCKET_ERROR) ? WSAGetLastError() : 0;
+		if(read > 0 || error == WSAEMSGSIZE)
+		{
+			slirp_revents |= SLIRP_POLL_IN;
+		}
+		else if(read == 0 || error == WSAECONNRESET)
+		{
+			slirp_revents |= SLIRP_POLL_IN;
+			slirp_revents |= SLIRP_POLL_HUP;
+		}
+		else
+		{
+			slirp_revents |= SLIRP_POLL_IN;
+			slirp_revents |= SLIRP_POLL_ERR;
+		}
+	}
+	if(FD_ISSET(idx, &writefds))
+	{
+		slirp_revents |= SLIRP_POLL_OUT;
+	}
+	if(FD_ISSET(idx, &exceptfds))
+	{
+		u_long atmark = 0;
+		if(ioctlsocket(idx, SIOCATMARK, &atmark) == 0 && atmark == 1)
+		{
+			slirp_revents |= SLIRP_POLL_PRI;
+		}
+		else
+		{
+			slirp_revents |= SLIRP_POLL_ERR;
+		}
+	}
+	return slirp_revents;
 }
 
 #endif

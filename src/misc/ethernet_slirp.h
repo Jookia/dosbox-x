@@ -71,6 +71,10 @@ class SlirpEthernetConnection : public EthernetConnection {
 
 #ifndef WIN32
 		std::vector<struct pollfd> polls;
+#else
+		fd_set readfds;
+		fd_set writefds;
+		fd_set exceptfds;
 #endif
 };
 

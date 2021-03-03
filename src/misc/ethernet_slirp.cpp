@@ -25,6 +25,7 @@
 #include "dosbox.h"
 
 #ifdef WIN32
+#if _WIN32_WINNT < 0x600
 /* Very quick Windows XP-compatible inet_pton implementation */
 int inet_pton_win(int af, const char* src, void* dst)
 {
@@ -36,10 +37,12 @@ int inet_pton_win(int af, const char* src, void* dst)
 	LOG_MSG("SLIRP: inet_pton unimplemented for AF %i (source %s)", af, src);
 	return -1;
 }
-#define inet_pton inet_pton_win
-#else
+#else /* _WIN32_WINNT >= 0x600 */
+#include <ws2tcpip.h>
+#endif /* _WIN32_WINNT */
+#else /* !WIN32 */
 #include <arpa/inet.h>
-#endif
+#endif /* WIN32 */
 
 ssize_t slirp_receive_packet(const void* buf, size_t len, void* opaque)
 {

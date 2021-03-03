@@ -194,6 +194,7 @@ void SlirpEthernetConnection::GetPackets(std::function<void(const uint8_t*, int)
 	get_packet_callback = callback;
 	uint32_t timeout_ms = 0;
 	PollsClear();
+	PollsAddRegistered();
 	slirp_pollfds_fill(slirp, &timeout_ms, slirp_add_poll, this);
 	bool poll_failed = !PollsPoll(timeout_ms);
 	slirp_pollfds_poll(slirp, poll_failed, slirp_get_revents, this);

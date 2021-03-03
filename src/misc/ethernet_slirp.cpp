@@ -33,11 +33,7 @@ int inet_pton_win(int af, const char* src, void* dst)
 		unsigned long* num = (unsigned long*)dst;
 		*num = inet_addr(src);
 	}
-	else if(af == AF_INET6)
-	{
-		memset(dst, 0, 16);
-	}
-
+	LOG_MSG("SLIRP: inet_pton unimplemented for AF %i (source %s)", af, src);
 	return -1;
 }
 #define inet_pton inet_pton_win

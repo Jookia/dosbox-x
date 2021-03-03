@@ -980,21 +980,12 @@ esac
 
 dnl FEATURE: Whether to use libslirp, and enable userspace TCP/IP emulation
 AH_TEMPLATE(C_SLIRP, [Define to 1 to enable userspace TCP/IP emulation, requires libslirp])
-PKG_CHECK_MODULES(libslirp, slirp, [
-		have_slirp=yes
+PKG_CHECK_MODULES(libslirp, glib-2.0 slirp, [
 		AC_DEFINE(C_SLIRP,1)
 		LIBS="$LIBS ${libslirp_LIBS}"
 		CFLAGS="$CFLAGS ${libslirp_CFLAGS}"
 		CPPFLAGS="$CPPFLAGS ${libslirp_CFLAGS}"], [
-		have_slirp=no
 		AC_MSG_WARN([Can't find libslirp, userspace TCP/IP emulation disabled])])
-case "$host" in
-    *-*-cygwin* | *-*-mingw32*)
-       if test x$have_slirp = xyes; then
-         LIBS="$LIBS -lintl -liconv"
-       fi
-    ;;
-esac
 
 if test x$enable_x11 != xno; then
   dnl FEATURE: Whether to use X11 XKBlib

@@ -26,9 +26,7 @@
 #include <slirp/libslirp.h>
 #include <list>
 
-#ifndef WIN32
-#include <poll.h>
-#endif
+#include <glib.h>
 
 struct slirp_timer {
 	int64_t expires;
@@ -68,14 +66,7 @@ class SlirpEthernetConnection : public EthernetConnection {
 		std::list<struct slirp_timer*> timers;
 		std::function<void(const uint8_t*, int)> get_packet_callback;
 		std::list<int> registered_fds;
-
-#ifndef WIN32
-		std::vector<struct pollfd> polls;
-#else
-		fd_set readfds;
-		fd_set writefds;
-		fd_set exceptfds;
-#endif
+		std::vector<GPollFD> polls;
 };
 
 #endif

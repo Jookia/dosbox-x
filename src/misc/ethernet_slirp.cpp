@@ -25,25 +25,25 @@
 #include "dosbox.h"
 
 #ifdef WIN32
+#if _WIN32_WINNT < 0x0600
 /* Very quick Windows XP-compatible inet_pton implementation */
 int inet_pton_win(int af, const char* src, void* dst)
 {
-	if(af == AF_INET)
+	if(af != AF_INET)
 	{
 		unsigned long* num = (unsigned long*)dst;
 		*num = inet_addr(src);
 	}
-	else if(af == AF_INET6)
-	{
-		memset(dst, 0, 16);
-	}
-
+	LOG("SLIRP: inet_pton_win unimplemented for AF %i (source %s)!", af, src);
 	return -1;
 }
 #define inet_pton inet_pton_win
 #else
+#include <ws2tcpip.h>
+#endif /* _WIN32_WINNT */
+#else
 #include <arpa/inet.h>
-#endif
+#endif /* WIN32 */
 
 ssize_t slirp_receive_packet(const void* buf, size_t len, void* opaque)
 {
@@ -269,8 +269,6 @@ void SlirpEthernetConnection::PollsAddRegistered()
 	});
 }
 
-#ifndef WIN32
-
 void SlirpEthernetConnection::PollsClear()
 {
 	polls.clear();
@@ -278,11 +276,11 @@ void SlirpEthernetConnection::PollsClear()
 
 int SlirpEthernetConnection::PollAdd(int fd, int slirp_events)
 {
-	int real_events = 0;
-	if(slirp_events & SLIRP_POLL_IN)  real_events |= POLLIN;
-	if(slirp_events & SLIRP_POLL_OUT) real_events |= POLLOUT;
-	if(slirp_events & SLIRP_POLL_PRI) real_events |= POLLPRI;
-	struct pollfd new_poll;
+	gushort real_events = 0;
+	if(slirp_events & SLIRP_POLL_IN)  real_events |= G_IO_IN;
+	if(slirp_events & SLIRP_POLL_OUT) real_events |= G_IO_OUT;
+	if(slirp_events & SLIRP_POLL_PRI) real_events |= G_IO_PRI;
+	GPollFD new_poll;
 	new_poll.fd = fd;
 	new_poll.events = real_events;
 	polls.push_back(new_poll);
@@ -291,90 +289,20 @@ int SlirpEthernetConnection::PollAdd(int fd, int slirp_events)
 
 bool SlirpEthernetConnection::PollsPoll(uint32_t timeout_ms)
 {
-	int ret = poll(polls.data(), polls.size(), timeout_ms);
+	int ret = g_poll(polls.data(), polls.size(), timeout_ms);
 	return (ret > -1);
 }
 
 int SlirpEthernetConnection::PollGetSlirpRevents(int idx)
 {
-	int real_revents = polls.at(idx).revents;
+	gushort real_revents = polls.at(idx).revents;
 	int slirp_revents = 0;
-	if(real_revents & POLLIN)  slirp_revents |= SLIRP_POLL_IN;
-	if(real_revents & POLLOUT) slirp_revents |= SLIRP_POLL_OUT;
-	if(real_revents & POLLPRI) slirp_revents |= SLIRP_POLL_PRI;
-	if(real_revents & POLLERR) slirp_revents |= SLIRP_POLL_ERR;
-	if(real_revents & POLLHUP) slirp_revents |= SLIRP_POLL_HUP;
+	if(real_revents & G_IO_IN)  slirp_revents |= SLIRP_POLL_IN;
+	if(real_revents & G_IO_OUT) slirp_revents |= SLIRP_POLL_OUT;
+	if(real_revents & G_IO_PRI) slirp_revents |= SLIRP_POLL_PRI;
+	if(real_revents & G_IO_ERR) slirp_revents |= SLIRP_POLL_ERR;
+	if(real_revents & G_IO_HUP) slirp_revents |= SLIRP_POLL_HUP;
 	return slirp_revents;
 }
-
-#else
-
-void SlirpEthernetConnection::PollsClear()
-{
-	FD_ZERO(&readfds);
-	FD_ZERO(&writefds);
-	FD_ZERO(&exceptfds);
-}
-
-int SlirpEthernetConnection::PollAdd(int fd, int slirp_events)
-{
-	if(slirp_events & SLIRP_POLL_IN)  FD_SET(fd, &readfds);
-	if(slirp_events & SLIRP_POLL_OUT) FD_SET(fd, &writefds);
-	if(slirp_events & SLIRP_POLL_PRI) FD_SET(fd, &exceptfds);
-	return fd;
-}
-
-bool SlirpEthernetConnection::PollsPoll(uint32_t timeout_ms)
-{
-	struct timeval timeout;
-	timeout.tv_sec = timeout_ms / 1000;
-	timeout.tv_usec = (timeout_ms % 1000) * 1000;
-	int ret = select(0, &readfds, &writefds, &exceptfds, &timeout);
-	return (ret > -1);
-}
-
-int SlirpEthernetConnection::PollGetSlirpRevents(int idx)
-{
-	int slirp_revents = 0;
-	if(FD_ISSET(idx, &readfds))
-	{
-		char buf[8];
-		int read = recv(idx, buf, sizeof(buf), MSG_PEEK);
-		int error = (read == SOCKET_ERROR) ? WSAGetLastError() : 0;
-		if(read > 0 || error == WSAEMSGSIZE)
-		{
-			slirp_revents |= SLIRP_POLL_IN;
-		}
-		else if(read == 0)
-		{
-			slirp_revents |= SLIRP_POLL_IN;
-			slirp_revents |= SLIRP_POLL_HUP;
-		}
-		else
-		{
-			slirp_revents |= SLIRP_POLL_IN;
-			slirp_revents |= SLIRP_POLL_ERR;
-		}
-	}
-	if(FD_ISSET(idx, &writefds))
-	{
-		slirp_revents |= SLIRP_POLL_OUT;
-	}
-	if(FD_ISSET(idx, &exceptfds))
-	{
-		u_long atmark = 0;
-		if(ioctlsocket(idx, SIOCATMARK, &atmark) == 0 && atmark == 1)
-		{
-			slirp_revents |= SLIRP_POLL_PRI;
-		}
-		else
-		{
-			slirp_revents |= SLIRP_POLL_ERR;
-		}
-	}
-	return slirp_revents;
-}
-
-#endif
 
 #endif

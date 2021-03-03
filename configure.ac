@@ -980,21 +980,24 @@ esac
 
 dnl FEATURE: Whether to use libslirp, and enable userspace TCP/IP emulation
 AH_TEMPLATE(C_SLIRP, [Define to 1 to enable userspace TCP/IP emulation, requires libslirp])
-PKG_CHECK_MODULES(libslirp, slirp, [
-		have_slirp=yes
+PKG_CHECK_MODULES(libglib, glib-2.0, [
+		have_glib=yes
 		AC_DEFINE(C_SLIRP,1)
-		LIBS="$LIBS ${libslirp_LIBS}"
-		CFLAGS="$CFLAGS ${libslirp_CFLAGS}"
-		CPPFLAGS="$CPPFLAGS ${libslirp_CFLAGS}"], [
-		have_slirp=no
-		AC_MSG_WARN([Can't find libslirp, userspace TCP/IP emulation disabled])])
-case "$host" in
-    *-*-cygwin* | *-*-mingw32*)
-       if test x$have_slirp = xyes; then
-         LIBS="$LIBS -lintl -liconv"
-       fi
-    ;;
-esac
+		LIBS="$LIBS ${libglib_LIBS}"
+		CFLAGS="$CFLAGS ${libglib_CFLAGS}"
+		CPPFLAGS="$CPPFLAGS ${libglib_CFLAGS}"], [
+		AC_MSG_WARN([Can't find glib, userspace TCP/IP emulation disabled])])
+if test x$have_glib == xyes; then
+	PKG_CHECK_MODULES(libslirp, slirp, [
+			have_slirp=yes
+			LIBS="$LIBS ${libslirp_LIBS}"
+			CFLAGS="$CFLAGS ${libslirp_CFLAGS}"
+			CPPFLAGS="$CPPFLAGS ${libslirp_CFLAGS}"], [
+			AC_MSG_WARN([Can't find libslirp, userspace TCP/IP emulation disabled])])
+fi
+if test x$have_slirp == xyes; then
+	AC_DEFINE(C_SLIRP,1)
+fi
 
 if test x$enable_x11 != xno; then
   dnl FEATURE: Whether to use X11 XKBlib
@@ -1146,7 +1149,7 @@ dnl so SDL_net, fluidsynth and libslirp successfully link to them
 if test x$enable_emscripten != xyes; then
 case "$host" in
     *-*-cygwin* | *-*-mingw32*)
-       if test x$have_sdl_net = xyes -o x$enable_libfluidsynth = xyes -o x$have_slirp = xyes; then
+       if test x$have_sdl_net = xyes -o x$enable_libfluidsynth = xyes; then
          LIBS="$LIBS -lwsock32 -lws2_32 -liphlpapi"
        fi
     ;;

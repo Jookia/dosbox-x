@@ -138,7 +138,7 @@ SlirpEthernetConnection::~SlirpEthernetConnection()
 
 bool SlirpEthernetConnection::Initialize(Section* dosbox_config)
 {
-	Section_prop *section = static_cast<Section_prop*>(dosbox_config);
+	Section_prop* section = static_cast<Section_prop*>(dosbox_config);
 
 	LOG_MSG("SLIRP version: %s", slirp_version_string());
 

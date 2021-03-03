@@ -982,7 +982,7 @@ dnl FEATURE: Whether to use libslirp, and enable userspace TCP/IP emulation
 AH_TEMPLATE(C_SLIRP, [Define to 1 to enable userspace TCP/IP emulation, requires libslirp])
 PKG_CHECK_MODULES(libslirp, glib-2.0 slirp, [
 		AC_DEFINE(C_SLIRP,1)
-		LIBS="$LIBS ${libslirp_LIBS}"
+		LIBS="$LIBS ${libslirp_LIBS} -liconv"
 		CFLAGS="$CFLAGS ${libslirp_CFLAGS}"
 		CPPFLAGS="$CPPFLAGS ${libslirp_CFLAGS}"], [
 		AC_MSG_WARN([Can't find libslirp, userspace TCP/IP emulation disabled])])

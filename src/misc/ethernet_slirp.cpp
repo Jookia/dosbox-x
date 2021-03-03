@@ -248,6 +248,7 @@ void SlirpEthernetConnection::TimersClear()
 
 void SlirpEthernetConnection::PollRegister(int fd)
 {
+	/* TODO: fd may be invalid */
 	PollUnregister(fd);
 	registered_fds.push_back(fd);
 }

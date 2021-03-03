@@ -4027,7 +4027,7 @@ void DOSBOX_SetupConfigSections(void) {
         "private use, so modify the last three number blocks.\n"
         "I.e. AC:DE:48:88:99:AB.");
 
-    Pstring = secprop->Add_string("backend", Property::Changeable::WhenIdle, "slirp");
+    Pstring = secprop->Add_string("backend", Property::Changeable::WhenIdle, "pcap");
     Pstring->Set_help("The backend used for Ethernet emulation.");
     Pstring->SetBasic(true);
 

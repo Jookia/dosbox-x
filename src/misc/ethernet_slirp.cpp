@@ -29,7 +29,7 @@
 /* Very quick Windows XP-compatible inet_pton implementation */
 int inet_pton_win(int af, const char* src, void* dst)
 {
-	if(af != AF_INET)
+	if(af == AF_INET)
 	{
 		unsigned long* num = (unsigned long*)dst;
 		*num = inet_addr(src);

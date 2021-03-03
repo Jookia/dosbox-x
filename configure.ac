@@ -1133,11 +1133,11 @@ dnl placeholder
 AH_TEMPLATE(C_ICONV_WIN32,[Define to 1 to use Win32 functions in iconv backend])
 
 dnl If networking is used, add networking libraries last on Windows
-dnl so SDL_net, fluidsynth and libslirp successfully link to them
+dnl so SDL_net and fluidsynth successfully link to them
 if test x$enable_emscripten != xyes; then
 case "$host" in
     *-*-cygwin* | *-*-mingw32*)
-       if test x$have_sdl_net = xyes -o x$enable_libfluidsynth = xyes -o x$have_slirp = xyes; then
+       if test x$have_sdl_net = xyes -o x$enable_libfluidsynth = xyes; then
          LIBS="$LIBS -lwsock32 -lws2_32 -liphlpapi"
        fi
     ;;

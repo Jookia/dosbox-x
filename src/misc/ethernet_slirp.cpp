@@ -344,7 +344,7 @@ int SlirpEthernetConnection::PollGetSlirpRevents(int idx)
 		{
 			slirp_revents |= SLIRP_POLL_IN;
 		}
-		else if(read == 0 || error == WSAECONNRESET)
+		else if(read == 0)
 		{
 			slirp_revents |= SLIRP_POLL_IN;
 			slirp_revents |= SLIRP_POLL_HUP;

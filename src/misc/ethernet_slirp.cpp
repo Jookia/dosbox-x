@@ -251,7 +251,10 @@ void SlirpEthernetConnection::TimersClear()
 
 void SlirpEthernetConnection::PollRegister(int fd)
 {
+#ifdef WIN32
+	return;
 	/* TODO: fd may be invalid */
+#endif
 	PollUnregister(fd);
 	registered_fds.push_back(fd);
 }
